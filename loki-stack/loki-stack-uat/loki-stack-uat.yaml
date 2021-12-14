@@ -1,0 +1,255 @@
+
+loki:
+  enabled: true
+
+  persistence:
+    enabled: true
+    accessModes:
+    - ReadWriteOnce
+    size: 200Gi
+    annotations: {}
+    # subPath: ""
+    # existingClaim:
+  ingress:
+    enabled: true
+    annotations: {}
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    hosts:
+      - host: bse-alognttd-u01.aeonad.com.my
+        paths: [/]
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
+
+promtail:
+  enabled: true
+
+fluent-bit:
+  enabled: false
+
+grafana:
+  enabled: false
+
+prometheus:
+  enabled: true
+
+  server:
+    ingress:
+      enabled: true
+      annotations: 
+         kubernetes.io/ingress.class: nginx
+         kubernetes.io/tls-acme: 'true'
+      extraLabels: {}
+      hosts: 
+         - prometheus.local
+      extraPaths: []
+      tls: []
+    persistentVolume:
+      enabled: true
+      accessModes:
+        - ReadWriteOnce
+      annotations: {}
+      existingClaim: ""
+      mountPath: /data
+      size: 200Gi
+      # storageClass: "-"
+      subPath: ""
+
+    retention: "365d"
+
+    global:
+      scrape_timeout: 20s
+
+  extraScrapeConfigs: |
+    - job_name: 'ist_app'
+      static_configs:
+        - targets:
+          - 10.21.40.135:9080
+
+    - job_name: 'as400_rpa'
+      scrape_interval: 5m # default (1m)
+      static_configs:
+        - targets:
+          - 10.2.101.42:9080
+
+    - job_name: 'promtail_counter'
+      static_configs:
+        - targets:
+          - 200.1.1.27:9080 #QR-AP1
+          - 200.1.1.26:9080 #QR-AP2
+          - 200.1.1.17:9080 #QR-Web1
+          - 200.1.1.11:9080 #QR-Web2
+
+    - job_name: 'snmp_monitoring'
+      #scrape_interval: '10m' # Use default (1m)
+      static_configs:
+        - targets:
+          # System: QRPay (PROD)
+          #- '100.3.1.184'   # AEON-EWAP1PROD - Duplicate above
+          #- '100.3.1.172'   # AEON-EWAP2PROD - Duplicate above
+          #- '100.3.1.163'   # AEON-EWDBMPROD - Duplicate above
+          #- '100.3.1.173'   # AEON-EWDBSPROD - Duplicate above
+          - '100.3.1.171'   # aeon-ewweb2prod.aeonad.com.my
+          - '100.3.1.183'   # aeon-ewweb1prod.aeonad.com.my
+          - '100.3.1.161'   # AEON-EWWEB(vip)
+          - '100.3.1.162'   # AEON-EWAPDR(vip)
+          - '200.1.2.162'   # AEON-EWAPDR
+          - '200.1.2.163'   # AEON-EWDBDR
+          - '200.1.2.161'   # AEON-EWWEBDR
+          #-'200.1.1.114'       #QRPay unknown server  (added on 13/06/2021)
+          # System: FEP_IST (PROD)
+          - '100.3.1.138'  # FEP-PRD-IST-Switch-HTTP
+          - '100.3.1.139'  # FEP-PRD-IST-Switch-Web1
+          - '100.3.1.145'  # FEP-PRD-IST-Switch-APP1
+          #- '100.3.1.136'  # FEP-PRD-IST-Switch-DB1 (Delete 20210310)
+          #- '100.3.1.137'  # FEP-PRD-IST-Switch-DB2 (Delete 20210310)
+          - '10.2.103.17'  # FEP-PRD-IST-Switch-DB1 (Add 20210310)
+          - '10.2.103.18'  # FEP-PRD-IST-Switch-DB2 (Add 20210310)
+          # System: FEP_IST (DR)
+          - '10.21.1.136'  # FEP-DR-IST-Switch-Web1
+          - '10.21.1.135'  # FEP-DR-IST-Switch-APP1
+          - '10.21.1.137'  # FEP-DR-IST-Switch-DB1
+          - '10.21.1.138'  # FEP-DR-IST-Switch-HTTP
+          # Hypervisor test
+          - '10.21.40.37'  # 
+          - '10.21.40.38'  #
+          - '10.21.10.195'  #
+          # New LOS and hypervisor
+          - '100.1.1.88'  #CJV-WIVEST-P01
+          - '100.1.1.118'  #CJV-WIVEST-P02
+          - '100.1.1.119'  #CJV-WIVEST-P03
+          - '100.1.1.23'  #CJV-ABLAZEA-P01
+          - '100.1.1.24'  #CJV-ABLAZEA-P02
+          - '100.1.1.127'  #CJV-CCRISMQ-P01
+          - '100.1.1.20'  #ESX-CBJPLAB-H001
+          - '100.1.1.31'  #ESX-CBJPLAB-H002
+          - '100.1.1.45'  #ESX-CBJPLAB-H003
+      metrics_path: /snmp
+      params:
+        module: [if_mib]
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: aeon-prometheus-snmp-exporter-normal.loki-stack.svc.cluster.local:9116
+
+    - job_name: 'blackbox-http'
+      metrics_path: /probe
+      params:
+        module: [http_2xx]
+      static_configs:
+        - targets:
+          - https://www.aeoncredit.com.my
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: prometheus-blackbox-exporter-service:9115
+
+    - job_name: 'blackbox-icmp'
+      metrics_path: /probe
+      params:
+        module: [icmp]
+      static_configs:
+        - targets:
+          - 10.3.1.112	     # ACE-DB
+          - 100.1.1.219      # AEON-ACEPlusTS (VM)
+          - 100.3.1.110      # ACE-SR01
+          - 100.3.1.111      # ACE-SR02
+          - 100.3.1.112      # ACE-DB
+          - 100.3.1.113      # ACE-BatchWebAP
+          - 200.3.1.110      # ACE-SR01
+          - 200.3.1.111      # ACE-SR02
+          - 200.3.1.112      # ACE-DB
+          - 200.3.1.113      # ACE-BatchWebAP
+          - 200.3.2.100      # ACE-APPUAT
+          - 200.3.2.101      # ACE-DBUAT
+          - 100.1.1.107      # NTT-AS400
+          - 100.1.1.108      # NTT-AS400
+          - 100.1.1.11	     # NTT-AS400
+          - 100.1.1.12	     # NTT-AS400
+          - 100.1.1.140      # AS400
+          - 100.1.1.141      # AS400
+          - 100.1.1.142      # AS400
+          - 100.1.1.7	       # NTT-AS400
+          - 100.1.1.9	       # AS400
+          - 100.3.1.245	     # AS400 ECCYPTION 
+          - 100.3.1.246	     # AEON-DCSKLM
+          - 200.1.1.250	     # AEONUAT
+          - 200.1.1.251	     # AEONDEV
+          - 200.1.2.130	     # AEONBCK
+          - 200.1.2.236	     # AEONUAT
+          - 10.21.10.46	     # P9DRCore.aeonad.com.my
+          - 10.2.103.9	     # P9PRDCore.aeonad.com.my
+          - 10.2.100.32	     # CJR-ACRDSYS-P1 
+          - 10.2.100.33	     # CJR-ACRDSYS-P2 
+          - 10.2.103.30	     # CJR-DCRDSYS-P01
+          - 10.2.103.31	     # CJR-DCRDSYS-P02
+          - 10.2.103.32	     # DCRDSYS-CLUSTER
+          - 10.21.1.71	     # BSR-WCRDSYS-DR1
+          - 10.21.1.72	     # BSR-WCRDSYS-DR2
+          - 10.21.1.73	     # BSR-ACRDSYS-DR1
+          - 10.21.1.74	     # BSR-ACRDSYS-DR2
+          - 10.21.1.76	     # BSR-DCRDSYS-DR1
+          - 10.21.1.77	     # CORE CARD SYSTEM
+          - 10.21.40.33	     # BSE-WCRDSYS-U01
+          - 10.21.40.34	     # BSE-DCRDSYS-U01
+          - 10.21.40.35	     # BSE-WCRDSYS-U02
+          - 10.21.40.78	     # BSE-DCRDSYS-U02
+          - 10.21.40.79	     # BSE-WCRDSYS-U03
+          - 10.21.40.88	     # BSE-ACRDSYS-U01
+          - 100.3.1.143	     # CJR-DCRDSYS-P02
+          - 100.3.1.243	     # CJR-FCRDSYS-P01
+          - 100.3.1.248	     # CJR-AWOL-P03
+          - 100.3.1.249	     # CJR-ACRDSYS-P01
+          - 100.3.1.250	     # CJR-DCRDSYS-P01
+          - 100.3.1.251	     # CJR-ACRDSYS-P02
+          - 10.10.1.81	     # ACSM-DR E-WALLET WEB SERVER 
+          - 10.2.1.41	       # ACSM-EWALLET WEB SERVER 1 
+          - 10.2.1.42	       # ACSM-EWALLET WEB SERVER 2 
+          - 100.3.1.164	     # ACSM-EWALLET APP SERVER 1 
+          - 100.3.1.165	     # ACSM-EWALLET DB NODE 1 
+          - 100.3.1.174	     # ew-prd-as2
+          - 100.3.1.175	     # EWALLET DB NODE 2
+          - 100.3.1.176	     # ACSM-EWALLET DB NODE 3 
+          - 200.1.2.164	     # ACSM-DR E-WALLET APP SERVER 
+          - 200.1.2.165	     # ACSM-DR E-WALLET DB 
+          - 200.1.2.224	     # AEON-EWALLET-Proxy-UAT
+          - 200.1.2.225	     # AEON-EWALLET-DB-UAT
+          - 200.1.2.226	     # AEON-EWALLET-App-UAT
+          - 100.1.1.200	     # MFEPBM11
+          - 100.1.1.201	     # MFEPBM12
+          - 100.1.1.202	     # MFEPMM11
+          - 100.1.1.203	     # MMONBM11
+          - 200.1.1.70	     # DFEPBM11
+          - 200.1.1.71	     # DMONBM11
+          - 200.1.1.72	     # VFEPMM11
+          - 10.21.40.112	   # IST/Switch - App1 (SIT)
+          - 10.21.40.135	   # FEP-UAT-IST-APP1
+          - 10.21.40.135	   # FEP-UAT-IST-Switch-App1
+          - 10.21.40.136	   # FEP-UAT-IST-Switch-DB1
+          - 10.21.40.137	   # FEP-UAT-IST-Switch-HTTP
+          - 10.21.40.138	   # FEP-UAT-IST-Switch-Web
+          - 10.2.103.17	     # CJP-DBIST-P01 
+          - 10.2.103.18	     # CJP-DBIST-P02 
+          - 10.21.1.135	     # FEP-DR-IST-Switch-App1
+          - 10.21.1.136	     # FEP-DR-IST-Switch-Web1
+          - 10.21.1.138	     # FEP-DR-IST-Switch-HTTP
+          - 100.3.1.138	     # FEP-PRD-IST-Switch-HTTP
+          - 100.3.1.139	     # FEP-PRD-IST-Switch-Web1
+          - 100.3.1.145	     # FEP-PRD-IST-Switch-App1
+          - 10.21.10.16	     # BSP-DBIST-DR01
+ 
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: prometheus-blackbox-exporter-service:9115

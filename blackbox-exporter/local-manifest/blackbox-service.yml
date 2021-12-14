@@ -1,0 +1,17 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: prometheus-blackbox-exporter-service
+  namespace: loki
+  labels:
+    app: prometheus-blackbox-exporter
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 9115
+      nodePort: 30003
+      protocol: TCP
+  selector:
+    app: prometheus-blackbox-exporter

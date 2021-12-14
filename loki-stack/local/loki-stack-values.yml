@@ -1,0 +1,113 @@
+---
+loki:
+  enabled: true
+  persistence:
+    enabled: true
+    accessModes:
+      - ReadWriteOnce
+
+promtail:
+  enabled: true
+
+grafana:
+  enabled: true
+  adminPassword: prom-operator
+  sidecar:
+    datasources:
+      enabled: true
+  image:
+    tag: 7.5.0
+  service:
+    nodePort: 30001
+    type: NodePort
+
+prometheus:
+  enabled: true
+
+  alertmanager:
+    persistentVolume:
+      enabled: true
+      accessModes:
+        - ReadWriteOnce
+
+  server:
+    enabled: true
+    extraFlags:
+      - web.enable-lifecycle
+      - web.enable-admin-api
+    configPath: /etc/config/prometheus.yml
+
+    persistentVolume:
+      enabled: true
+      accessModes:
+        - ReadWriteOnce
+      storageClass: microk8s-hostpath
+
+    service:
+      nodePort: 30002
+      type: NodePort
+
+  extraScrapeConfigs: |
+   - job_name: 'blackbox-http'
+     metrics_path: /probe
+     params:
+       module: [http_2xx]
+     static_configs:
+       - targets:
+         - https://www.nttdata.com
+         - https://group.ntt
+         - https://www.aeoncredit.com.my
+         - https://www.ipay88.com
+         - https://nttdata-solutions.com
+
+     relabel_configs:
+       - source_labels: [__address__]
+         target_label: __param_target
+       - source_labels: [__param_target]
+         target_label: instance
+       - target_label: __address__
+         replacement: prometheus-blackbox-exporter-service:9115
+
+   - job_name: 'blackbox-icmp'
+     metrics_path: /probe
+     params:
+       module: [icmp]
+     static_configs:
+       - targets:
+         - 1.1.1.1         
+         - 1.0.0.1
+         - 8.8.8.8
+         - 8.8.4.4
+         - 9.9.9.9
+         - 80.80.80.80
+         - 80.80.81.81
+ 
+     relabel_configs:
+       - source_labels: [__address__]
+         target_label: __param_target
+       - source_labels: [__param_target]
+         target_label: instance
+       - target_label: __address__
+         replacement: prometheus-blackbox-exporter-service:9115
+
+   - job_name: 'blackbox-portcheck'
+     metrics_path: /probe
+     params:
+       module: [tcp_connect]
+     static_configs:
+       - targets:
+         - 192.168.152.205:5000
+         - 192.168.152.205:5050
+         - 192.168.152.205:8080        
+     relabel_configs:
+       - source_labels: [__address__]
+         target_label: __param_target
+       - source_labels: [__param_target]
+         target_label: instance
+       - target_label: __address__
+         replacement: prometheus-blackbox-exporter-service:9115
+  
+   - job_name: 'java'
+     static_configs:
+     - targets:
+       - 192.168.1.20:20000

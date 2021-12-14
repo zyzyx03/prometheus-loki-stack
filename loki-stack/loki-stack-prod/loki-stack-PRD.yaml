@@ -1,0 +1,675 @@
+loki:
+  enabled: true
+
+  persistence:
+    enabled: true
+    accessModes:
+    - ReadWriteOnce
+    size: 200Gi
+    annotations: {}
+    # subPath: ""
+    # existingClaim:
+  ingress:
+    enabled: true
+    annotations: {}
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    hosts:
+      - host: bse-alognttd-p01.aeonad.com.my
+        paths: [/]
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
+  resources:
+    limits:
+      memory: 8192Mi
+    requests:
+      memory: 4096Mi
+
+promtail:
+  enabled: true
+
+fluent-bit:
+  enabled: false
+
+grafana:
+  enabled: false
+
+prometheus:
+  enabled: true
+
+  server:
+    ingress:
+      enabled: true
+      annotations: 
+         kubernetes.io/ingress.class: nginx
+         kubernetes.io/tls-acme: 'true'
+      extraLabels: {}
+      hosts: 
+         - prometheus.local
+      extraPaths: []
+      tls: []
+    persistentVolume:
+      enabled: true
+      accessModes:
+        - ReadWriteOnce
+      annotations: {}
+      existingClaim: ""
+      mountPath: /data
+      size: 200Gi
+      # storageClass: "-"
+      subPath: ""
+
+    retention: "365d"
+
+    global:
+      scrape_timeout: 20s
+
+  extraScrapeConfigs: |
+    - job_name: 'ist_app'
+      static_configs:
+        - targets:
+          - 100.3.1.145:9080
+
+    - job_name: 'as400_rpa'
+      scrape_interval: 5m # default (1m)
+      static_configs:
+        - targets:
+          - 10.2.101.42:9080
+
+    - job_name: 'promtail_counter'
+      static_configs:
+        - targets:
+          - 100.3.1.183:9080 #QR-Web1
+          - 100.3.1.171:9080 #QR-Web2
+          - 100.3.1.184:9080 #QR-AP1
+          - 100.3.1.172:9080 #QR-Web1
+
+    - job_name: 'snmp_exporter_QR-AP1'
+      static_configs:
+        - targets:
+          - 100.3.1.184
+      metrics_path: /snmp
+      params:
+        module: [if_mib]
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: aeon-prometheus-snmp-exporter-normal.loki-stack.svc.cluster.local:9116
+
+    - job_name: 'snmp_exporter_QR-AP2'
+      static_configs:
+        - targets:
+          - 100.3.1.172
+      metrics_path: /snmp
+      params:
+        module: [if_mib]
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: aeon-prometheus-snmp-exporter-normal.loki-stack.svc.cluster.local:9116
+
+    - job_name: 'snmp_exporter_QR-DB1'
+      static_configs:
+        - targets:
+          - 100.3.1.163
+      metrics_path: /snmp
+      params:
+        module: [if_mib]
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: aeon-prometheus-snmp-exporter-normal.loki-stack.svc.cluster.local:9116
+
+    - job_name: 'snmp_exporter_QR-DB2'
+      static_configs:
+        - targets:
+          - 100.3.1.173
+      metrics_path: /snmp
+      params:
+        module: [if_mib]
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: aeon-prometheus-snmp-exporter-normal.loki-stack.svc.cluster.local:9116
+
+    - job_name: 'snmp_exporter_AS400'
+      #scrape_interval: 5m # Use default (1m)
+      #scrape_timeout: 60s # Use global (see above)
+      static_configs:
+        - targets:
+          - 100.1.1.9
+      metrics_path: /snmp
+      params:
+        module: [if_mib]
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: aeon-prometheus-snmp-exporter.loki-stack.svc.cluster.local:9116
+
+    - job_name: 'snmp_exporter_AS400_P9'
+      #scrape_interval: 5m # Use default (1m)
+      #scrape_timeout: 60s # Use global (see above)
+      static_configs:
+        - targets:
+          - 10.2.103.9
+      metrics_path: /snmp
+      params:
+        module: [if_mib]
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: aeon-prometheus-snmp-exporter.loki-stack.svc.cluster.local:9116
+
+    - job_name: 'snmp_monitoring'
+      #scrape_interval: '10m' # Use default (1m)
+      static_configs:
+        - targets:
+          # System: QRPay (PROD)
+          #- '100.3.1.184'   # AEON-EWAP1PROD - Duplicate above
+          #- '100.3.1.172'   # AEON-EWAP2PROD - Duplicate above
+          #- '100.3.1.163'   # AEON-EWDBMPROD - Duplicate above
+          #- '100.3.1.173'   # AEON-EWDBSPROD - Duplicate above
+          - '100.3.1.171'   # aeon-ewweb2prod.aeonad.com.my
+          - '100.3.1.183'   # aeon-ewweb1prod.aeonad.com.my
+          - '100.3.1.161'   # AEON-EWWEB(vip)
+          - '100.3.1.162'   # AEON-EWAPDR(vip)
+          - '200.1.2.162'   # AEON-EWAPDR
+          - '200.1.2.163'   # AEON-EWDBDR
+          - '200.1.2.161'   # AEON-EWWEBDR
+          #-'200.1.1.114'	#QRPay unknown server  (added on 13/06/2021)
+          # System: FEP_IST (PROD)
+          - '100.3.1.138'  # FEP-PRD-IST-Switch-HTTP
+          - '100.3.1.139'  # FEP-PRD-IST-Switch-Web1
+          - '100.3.1.145'  # FEP-PRD-IST-Switch-APP1
+          #- '100.3.1.136'  # FEP-PRD-IST-Switch-DB1 (Delete 20210310)
+          #- '100.3.1.137'  # FEP-PRD-IST-Switch-DB2 (Delete 20210310)
+          - '10.2.103.17'  # FEP-PRD-IST-Switch-DB1 (Add 20210310)
+          - '10.2.103.18'  # FEP-PRD-IST-Switch-DB2 (Add 20210310)
+          # System: FEP_IST (DR)
+          - '10.21.1.136'  # FEP-DR-IST-Switch-Web1
+          - '10.21.1.135'  # FEP-DR-IST-Switch-APP1
+          - '10.21.1.137'  # FEP-DR-IST-Switch-DB1
+          - '10.21.1.138'  # FEP-DR-IST-Switch-HTTP
+          # System: Old_FEP (PROD)
+          #- '10.3.1.111'  # MFEPMM12 NOSNMP
+          #- '10.3.1.112'  # MMONMM11 ACE-DB OldFEP (can not connect 21/10/2020,09/12/2020 STOPPED?)
+          - '100.1.1.202'	#MFEPMM11 (added on 13/06/2021)
+          # System: Old_FEP (DR)
+          - '200.1.1.70'  # DCFEPBM11
+          - '200.1.1.71'  # DMONBM11
+          - '100.1.1.200' # MFEPBM11
+          - '100.1.1.201' # MFEPBM12
+          - '100.1.1.203' # MMONMM11
+           # System: AEON-FEP-SIMULATOR-NTT  (added on 28/06/2021) 
+          - '100.1.1.146'	#AEON-FEPSIM           
+          # System: SMS
+          - '10.10.1.11'     # aeon-newsms.aeonad.com.my
+          - '10.2.1.22'      # aeon-nttsms.aeonad.com.my
+          - '10.2.1.33'      # aeon-smsiod.aeonad.com.my
+          - '10.2.1.23'	     #AEON-WEBSUB (VM) (added on 13/06/2021)
+          - '10.21.40.65'	#bse-a7gee-u01 (added on 13/06/2021)
+          # System: SMS (DR)
+          - '10.10.1.12'    #InfoService/IoD
+          #- '10.2.1.48'   # 7Gee App NOSNMP
+          #- '100.3.1.77'  # 7Gee DB  NOSNMP
+          # System: E-Wallet
+          - '10.2.1.41'     # ew-prd-ws1
+          - '10.2.1.42'     # ew-prd-ws2
+          - '100.3.1.164'   # ew-prd-as1
+          - '100.3.1.174'   # ew-prd-as2
+          - '100.3.1.165'   # ew-prd-db1
+          - '100.3.1.175'   # ew-prd-db2
+          - '100.3.1.176'   # aeon-ewallet-db-slave2
+          - '10.10.1.81'    # AEON-EWALLET-Proxy-DR
+          - '200.1.2.164'   # ew-dr-as1
+          - '200.1.2.165'   # ew-dr-db1
+          # System: WebOnline
+          - '10.2.1.26'     # Web1
+          - '10.2.1.27'     # Web2
+          - '100.1.1.169'   # AP1
+          - '100.1.1.179'   # AP2
+          #- '10.10.1.26'    # Web1(DR)
+          - '200.1.1.179'   # AP1(DR)
+          - '200.1.1.156'   # DB2(DR)
+          - '200.1.1.154'	##Web server UAT (added on 13/06/2021)
+          - '200.1.1.195'	#Web APP DEV (added on 13/06/2021)
+          - '10.2.1.51'     #CJR-WWOL-PZ01(Web 1) (added on 28/06/2021)
+          - '10.2.1.52'     #CJR-WWOL-PZ02(Web 2) (added on 28/06/2021)
+          - '100.3.1.29'	#CJR-NFSWOL-P01 [NFS] (added on 28/06/2021)
+          - '100.3.1.156'	#CJR-AWOL-P01 (APP1) (added on 28/06/2021)
+          - '100.3.1.157'	#CJR-AWOL-P02 (APP2) (added on 28/06/2021)
+          - '100.3.1.159'	#CJR-AWOL-P03 (APP3) (added on 28/06/2021)
+          - '100.3.1.168'	#CJR-AWOL-P04 (APP4) (added on 28/06/2021)
+          - '100.3.1.237'	#CJR-DWOL-P01 [DB1] (added on 28/06/2021)
+          - '100.3.1.238'	#CJR-DWOL-P02 [DB2] (added on 28/06/2021)
+          - '100.3.1.239'	#CJR-DWOL-P03 [DB3] (added on 28/06/2021)
+          # System: OTP
+          - '100.3.1.217'   # DB
+          - '100.3.1.216'   # AP1
+          - '100.3.1.218'   # AP2
+          - '10.2.1.61'     # Web1 cjr-wotp-pz01.aeonad.com.my
+          - '10.2.1.69'     # Web2 cjr-wotp-pz02.aeonad.com.my
+          # System: ACE Plus
+          - '100.3.1.110'   # ACE-SR01 
+          - '100.3.1.111'   # ACE-SR02
+          - '100.3.1.112'   # ACE-DB
+          - '100.3.1.113'   # ACE-WebBatchAP
+          - '200.3.1.110'   # ACE-SR01(DR) 
+          - '200.3.1.111'   # ACE-SR02(DR)
+          - '200.3.1.112'   # ACE-DB(DR)
+          - '200.3.1.113'   # ACE-WebBatchAP(DR)
+          # System: ACE Plus Model Learning PC
+          - '100.1.1.219'	#AEON-ACEPlusTS (VM)  (added on 28/06/2021)
+          # System: LOS1.0
+          - '100.2.1.181'   # AEON-LOSAPPR1
+          - '100.2.1.182'   # AEON-LOSAPPR2
+          - '100.2.1.183'   # AEON-LOSAPPR3
+          - '100.2.1.122'   # IDC_MQ_SVR
+          - '10.31.10.150'  # AEON-HQIMG
+          - '200.1.4.40'    # HQNCPDBDR
+          - '200.2.1.181'   # DCNCAPP1
+          - '200.2.1.183'   # DCNCAPP3
+          - '10.21.40.190'	#DATA ROBOT LOS API (added on 13/06/2021)
+          - '10.2.100.40'	#DATA ROBOT LOS API (added on 28/06/2021)  
+          - '10.2.1.126'	#CJR-WDROBO-PZ01 (added on 28/06/2021)       
+          - '10.21.255.13'	#LOS (added on 13/06/2021)
+          - '100.1.1.216'	#LOS 1.0 (added on 13/06/2021)
+          # System: LOS 2.0 added (13/06/2021)
+          - '100.3.1.102'	#LOS 2.0
+          - '100.3.1.103'	#LOS 2.0
+          # System: IST DB
+          - '10.2.103.17'   # CJP-DBIST-P01
+          - '10.2.103.18'   # CJP-DBIST-P02
+          - '10.21.10.16'   # BSP-DBIST-DR01
+          # System: RPA for AS400
+          - '10.2.101.42'   # BSE-AROBOT-P01
+          # System: 3DS
+          - '10.2.1.13'     # sppws
+          - '10.2.1.14'     # sppws2
+          - '100.1.1.63'    # 3DSECURE
+          - '100.1.1.64'    # sppas
+          - '100.1.1.70'    # sppas2
+          - '10.10.1.19'    # 3dsWeb-DR
+          - '200.1.1.115'   # 3dsDB-DR
+          - '200.1.1.116'   # 3dsApp-DR
+          # System: Eform(E-money)
+          - '10.2.1.36'     # aeon-emoneyweb.aeonad.com.my
+          - '10.2.1.46'     # aeon-emoneyweb.aeonad.com.my
+          - '200.1.2.81'    # bse-dbamp-dr01.aeonad.com.my
+          - '100.1.1.47'	# aeon-websubdb (added on 13/06/2021)
+          - '10.10.1.39'	#bse-waamp-drz01 (added on 28/06/2021)
+          # System: EFTSec
+          - '100.1.1.155'   # aeon-kmsprd.aeonad.com.my
+          - '200.1.1.155'   # aeon-kmsdr.aeonad.com.my EFTsec-DR
+          - '10.21.10.40'   # EFTSec_B(DR)
+          # System: PEP/AML
+          - '100.1.1.84'    # aeon-pepwebapp.aeonad.com.my
+          - '100.1.1.85'    # aeon-pepinter.aeonad.com.my
+          - '100.1.1.86'    # aeon-pepdb.aeonad.com.my
+          - '200.1.2.84'    # aeon-pepwebdr.aeonad.com.my
+          - '200.1.2.85'    # aeon-pepinterdr.aeonad.com.my
+          - '200.3.1.122'   # aeon-amluat.aeonad.com.my
+          # System: PMS
+          - '100.1.1.221'   # PMS-ESBPrd
+          - '100.1.1.222'   # PMS-DBPRD (can not connect from 30/10/2020)
+          - '100.3.1.209'   # CJR-DPMS-P01 (from 03/29/2021)
+          - '10.2.10.12'    # CJR-APMS-PZ02
+          - '10.2.10.13'    # CJR-APMS-PZ03
+          - '10.2.10.14'    # CJR-APMS-PZ04
+          - '10.21.1.85'    # BSR-DPMS-DR01
+          - '10.10.10.12'   # CJR-APMS-PZ02
+          - '10.10.10.13'   # CJR-APMS-PZ03
+          - '10.10.10.14'   # BSR-APMS-DRZ04
+          - '100.1.1.186'	#HRPMS (added 13/06/2021)
+          - '100.1.1.187'	#HRPMS (added 13/06/2021)
+          - '100.1.1.207'	#PMS-WEBPRD (added 13/06/2021)
+          - '100.3.1.72'	#CJR-APMS-P03 added (28/06/2021)
+          - '100.3.1.73'	#CJR-APMS-P04 added (28/06/2021)
+          - '100.3.1.74'	#CJR-APMS-P05 added (28/06/2021)
+          - '100.3.1.75'	#CJR-APMS-P06 added (28/06/2021)
+          - '100.3.1.224'	#CJR-APMS-P01 added (28/06/2021)
+          - '100.3.1.225'	#CJR-APMS-P02 added (28/06/2021)
+          # '10.10.10.11'   #ESB Server#1 added (15/09/2021) No response
+          # System: OpenAPI
+          - '10.2.1.74'     # CJR-WOPAPI-PZ01
+          - '10.2.100.26'   # CJR-AOPEAPI-PZ01
+          - '10.2.103.26'   # CJR-DBOPEAPI-P01
+          - '10.2.1.64'     # CJR-WOPAPI-PZ02
+          - '10.2.100.27'   # CJR-AOPEAPI-P02
+          - '10.2.103.27'   # CJR-DOPEAPI-P02
+          # System: CCRIS-WEBAPP-PRD
+          - '10.2.1.83'	#CCRIS B2B
+          # System: Core Card Web & App System added (13/06/2021)
+          - '10.2.100.30'	#CJR-WCRDSYS-P01 
+          - '10.2.100.31'	#CJR-WCRDSYS-P02 
+          - '10.2.100.32'	#CJR-ACRDSYS-P01 
+          - '10.2.100.33'	#CJR-ACRDSYS-P02
+          # System: Core Card File Staging added (28/06/2021)
+          - '100.3.1.243'	#CJR-FCRDSYS-P01 (VM)
+           # System: EKYC Landmark_Verification App 01 & App 02 added (13/06/2021) 
+          - '10.2.101.14'	#CJR-ALVEKYC-P01 (VM)
+          - '10.2.101.15'	#CJR-ALVEKYC-P02 (VM) 
+           # System: EKYC ID_Detection App 03 & App 04 added (13/06/2021) 
+          - '10.2.101.17'	#CJR-AIDDEKYC-P03 (VM)
+          - '10.2.101.18'	#CJR-AIDDEKYC-P04 (VM)   
+           # System: EKYC OCR App 05 & App 06 added (13/06/2021)
+          - '10.2.101.20'	#CJR-AOCREKYC-P05 (VM)
+          - '10.2.101.21'	#CJR-AOCREKYC-P06 (VM)   
+           # System: EKYC Face_Recognition App 07 & App 08 added (13/06/2021)
+          - '10.2.101.23'	#CJR-AFREKYC-P07 (VM)
+          - '10.2.101.24'	#CJR-AFREKYC-P08 (VM) 
+           # System: EKYC API App 079& App 10 added (13/06/2021) 
+          - '10.2.101.32'	#CJR-AAPIEKYC-P09 (VM)
+          - '10.2.101.33'	#CJR-AAPIEKYC-P10 (VM) 
+           # System: EKYC-WebProxy - 01 & EKYC-WebProxy - 02 added (28/06/2021)   
+          - '10.2.1.123'	#CJR-WEKYC-PZ01 (VM)
+          - '10.2.1.124'	#CJR-WEKYC-PZ02 (VM)
+           # System: EKYC Testing added (28/06/2021) 
+          - '10.2.101.27'	#CJR-EKYC-Testing
+           # System: Document Tracking added (13/06/2021)   
+          - '10.10.1.32'	#Document Tracking
+          - '10.10.1.33'	#Document Tracking  
+           # System: Staging added (13/06/2021)
+          - '10.10.1.34'	#Staging 
+           # System: BI added (13/06/2021)
+          - '10.21.1.25'	#BI  
+           # System: WCRDSYS & ACRDSYS added (13/06/2021)         
+          - '10.21.1.71'	#BSR-WCRDSYS-DR1 (added 13/06/2021)
+          - '10.21.1.72'	#BSR-WCRDSYS-DR2 (added 13/06/2021)
+          - '10.21.1.73'	#BSR-ACRDSYS-DR1 (added 13/06/2021)
+          - '10.21.1.74'	#BSR-ACRDSYS-DR2 (added 13/06/2021)
+          - '10.21.1.76'	#BSR-DCRDSYS-DR1 (added 13/06/2021)
+           # System: CRM added (13/06/2021)
+          - '10.31.10.165'	#CRM
+          - '10.31.10.166'	#CRM  
+          - '100.2.1.130'	#CRM
+          - '100.2.1.131'	#CRM
+          - '200.1.1.182'	#CRM  
+          - '200.1.4.80'	#CRM 
+          - '200.3.1.103'	#CRM          
+           # System: AD added (13/06/2021)  
+          - '10.31.20.50'	#AD 
+          - '100.1.1.50'	#AD
+          - '200.1.1.212'	#AD
+           # System: Internal SFTP File Server Prod added (13/06/2021) 
+          - '100.1.1.13'	#aeon-staging (VM) 
+           # System: WorkFlow added (13/06/2021) 
+          - '100.1.1.21'	#WorkFlow  
+          - '200.1.1.120'	#WorkFlow 
+          - '200.1.1.122'	#WorkFlow
+          - '200.1.1.144'	#WorkFlow 
+          - '200.1.1.249'	#WorkFlow          
+           # System: Visa processing (Adrian) added (13/06/2021)
+          - '100.1.1.22'	#AEON-VISAEdt (VM)
+           # System: CRM Blynk (file SV) & CRM Sales Claim (MQ SV) added (13/06/2021) 
+          - '100.1.1.135'	#CRM
+          - '100.1.1.136'	#CRM
+          - '100.1.1.137'	#CRM 
+           # System: MasterSAM added (13/06/2021) 
+          - '100.1.1.149'	#MasterSAM
+          - '100.1.1.152'	#MasterSAM
+           # System: LOS CCRIS B2B added (13/06/2021)
+          - '100.1.1.164'	#LOS CCRIS B2B
+          - '200.1.1.164'	#LOS CCRIS B2B          
+           # System: Instant Card Embosser added (13/06/2021)
+          - '100.1.1.218'	#Datasonic 
+          - '100.1.1.220'	#Datasonic added (28/06/2021)
+          - '100.1.1.246'	#AEON-instEWEB (VM)added (28/06/2021)
+          - '100.1.1.251'	#AEON-InstEDB (VM)added (28/06/2021)
+           # System: SAP added (13/06/2021)
+          - '100.1.1.233'	#AEON-SAERPR1 (VM)
+          - '100.1.1.234'	#AEON-SAERPR2 (VM)
+          - '100.1.1.235'	#AEON-SAGWPR1 (VM)
+          - '100.1.1.236'	#aeon-sagwpr2 (VM)
+          - '100.1.1.237'	#aeon-sasolpr (VM)
+          - '100.1.1.239'	#AEON-SAPHNPR
+           # System: AEON ESOLUTION (DCMS) added (13/06/2021)
+          - '100.3.1.47'	#CJR-AESOL-P01 (VM)
+           # System: HRMS added (13/06/2021)
+          - '100.3.1.125'	#HRMS
+          - '100.3.1.126'	#HRMS
+          - '100.3.1.127'	#HRMS
+           # System: Cognos added (13/06/2021)          
+          - '100.3.1.128'	#BI
+          - '100.3.1.129'	#BI
+           # System: APPLICATION (MSSQL DB) added (13/06/2021)
+          - '100.3.1.148'	#CJR-DOAPI-P01 (VM) 
+           # System: MOS added (13/06/2021)
+          - '100.3.1.201'	#disabled-MOSApp02 added (28/06/2021)
+          - '100.3.1.200'	#disabled-MOSApp01 added (28/06/2021)
+          - '100.3.1.202'	#MOSDB01 added (28/06/2021)
+          - '100.3.1.203'	#MOSDB02 added (28/06/2021)
+          - '100.3.1.204'	#disabled-MOSApp03 added (28/06/2021)
+          - '100.3.1.205'	#disabled-MOSApp04 added (28/06/2021)
+          - '100.3.1.206'	#MOSNFS01 added (28/06/2021)
+          - '100.3.1.207'	#MosApp05 (VM) added (28/06/2021)
+           # System: AS400 ECCYPTION added (13/06/2021)
+          # '100.3.1.245'   #AS400 ECCYPTION added (15/09/2021) Connection refused
+          - '100.3.1.246'	#AEON-DCSKLM   
+           # System: Finance added (13/06/2021)
+          - '200.1.1.28'	#Finance 
+           # System: HRPMS added (13/06/2021)
+          - '200.1.1.40'	#HRPMS 
+          - '200.1.4.41'	#HRPMS
+           # System: Biztrak added (13/06/2021) 
+          - '200.1.1.45'	#Biztrak 
+           # System: SMTP added (13/06/2021) 
+          - '200.1.1.51'	#SMTP  
+            # System: LOS CCRIS Ivest added (13/06/2021) 
+          - '200.1.1.68'	#LOS CCRIS Ivest
+            # System: File Server added (13/06/2021
+          - '200.1.1.95'	#File Server  
+            # System: Printer Server added (13/06/2021)
+          - '200.1.1.104'	#Printer Server
+            # System: Digital Signage added (13/06/2021)
+          - '200.1.2.37'	#Digital Signage
+          - '200.1.2.38'	#Digital Signage
+          - '200.1.2.39'	#Digital Signage
+          - '200.1.2.43'	#Digital Signage
+          - '200.1.2.44'	#Digital Signage
+          - '200.1.2.45'	#Digital Signage
+          - '200.1.2.46'	#Digital Signage
+          - '200.1.2.47'	#Digital Signage
+          - '200.1.2.48'	#Digital Signage  
+            # System: LANDesk added (13/06/2021) 
+          - '200.1.2.71'	#LANDesk
+          - '200.1.2.72'	#LANDesk 
+            # System: DLP - DB added (13/06/2021) 
+          - '200.1.2.136'	#DLP - DB 
+            # System: ACSMail added (13/06/2021)
+          - '200.1.2.178'	#ACSMail
+            # System: Chat Mogi added (28/06/2021)
+          - '10.2.1.34' 	#AEON-CCM-Web (VM)
+          - '100.1.1.81'	#AEON-CMMAPP (VM)
+          - '100.1.1.82'	#AEON_CCMDB (VM)
+            # System: Ticketing System (OTRS) added (28/06/2021)
+          - '10.2.1.45' 	#AEON-OTRS
+            # System: MOSWeb01-PRD added (28/06/2021)
+          - '10.2.1.88'    #CJR-WMOS-PZ01 (VM)
+            # System: HostedEngine added (28/06/2021)
+          - '10.2.1.103'	#HostedEngine
+            # System: JACCESS-WEB01 added (28/06/2021)
+          - '10.2.1.120'	#CJR-WJACC-PZ01 (VM)
+            # System: Test VM by Wintel team added (28/06/2021)
+          - '10.2.1.125'	#CJE-WAAP-PZ01 -> CJE-TW2016-DZ01  
+            # System: Mastercard added (28/06/2021)  
+          - '10.2.1.130'	#Mastercard 
+          - '10.2.100.41'	#Mastercard 
+            # System: PCC added (28/06/2021)
+          - '10.2.100.39'	#PCC
+          - '10.2.100.42'	#PCC
+          - '10.2.100.43'	#PCC
+          - '10.2.100.44'	#PCC
+          - '10.2.100.45'	#PCC
+          - '10.2.100.46'	#PCC
+          - '10.2.100.47'	#PCC 
+            # System: PF Tawaruq WebApp 01 added (28/06/2021)
+          - '10.2.101.11'	#CJR-WATWRUQ-P01 (VM) 
+            # System: VM to EXSI added (28/06/2021)
+          - '10.2.101.12'	#CJR-DBTWRUQ-P01 (VM) 
+            # System: EXSI (Hypervisor) added (15/09/2021) 
+          - '10.2.1.30'     #AEON-DMZVMSERVER added (15/09/2021)
+          - '10.2.1.40'     #AEON-EWALLET-WEB added (15/09/2021)
+          - '10.2.1.80'     #AEON-CONSO7 added (15/09/2021)
+          - '100.1.1.100'   #AEON-RIVERBED1 (EXSi Host) added (15/09/2021)
+          - '100.1.1.110'   #AEON-RIVERBED2 (EXSi Host) added (15/09/2021)
+          - '100.1.1.132'   #AEON-CRMAPPPR added (15/09/2021)
+          - '100.1.1.160'   #VM-CCRISSPROD ESXI added(15/09/2021)
+          - '100.1.1.180'   #NTT-DCVM01 ESXI added (15/09/2021)
+          - '100.1.1.231'   #AEON-SAESXPR (BACKUP) added (15/09/2021)
+          - '100.1.1.240'   #AEON-FVCMS added (15/09/2021)
+          - '100.1.1.41'    #AEON-NTTDLG380G9-1 added (15/09/2021)
+          - '100.1.1.43'    #AEON-NTTDLG380G9-2 added (15/09/2021)
+          - '100.1.1.52'    #AD added (15/09/2021)
+          - '100.1.1.53'    #AEON-EMONEY-ESX added (15/09/2021)
+          - '100.1.1.54'    #HYPERCOM_EXS added (15/09/2021)
+          - '100.1.1.59'    #AEON-NTTAD added (15/09/2021) 
+          - '100.3.1.120'   #AEON-CONSONTT4 added (15/09/2021)
+          - '100.3.1.130'   #AEON-PAYSYS-CONSO-NTT6 added (15/09/2021) 
+          # '100.3.1.140'   #AEON-NTTDFSESX added (15/09/2021) No response
+          # '100.3.1.160'   #AEON-EWALLEX-PROD2 added (15/09/2021) No response
+          # '100.3.1.170'   #AEON-EWLLESX-PROD1 added (15/09/2021) No response
+          - '200.1.2.200'   #ESXI-HQ added (15/09/2021)
+            # System: Back Office Web System (Back Office - ROG) added (28/06/2021)
+          - '10.2.101.25'	#CJR-WBCKROG-P01 (VM)
+            # System: Back Office Application System (Back Office - ROG) added (28/06/2021)
+          - '10.2.101.26'	#CJR-ABCKROG-P01 (VM) 
+            # System: AAMLA/AML/CFT added (28/06/2021)
+          - '10.2.101.35'	#AAMLA/AML/CFT
+          - '10.2.101.36'	#AAMLA/AML/CFT
+          - '10.2.101.37'	#AAMLA/AML/CFT
+            # System: e-commerce / Product atalog Managaement System (PCMS)/App status repository added (28/06/2021)
+          - '10.2.101.241'	#e-commerce / Product atalog Managaement System (PCMS)/App status repository
+          - '10.2.101.242'	#e-commerce / Product atalog Managaement System (PCMS)/App status repository
+          - '10.2.101.243'	#e-commerce / Product atalog Managaement System (PCMS)/App status repository
+          - '10.2.101.244'	#e-commerce / Product atalog Managaement System (PCMS)/App status repository
+          - '10.2.101.247'	#e-commerce / Product atalog Managaement System (PCMS)/App status repository
+          - '10.2.101.248'	#e-commerce / Product atalog Managaement System (PCMS)/App status repository
+            # System: Printer Server (Megaform-UAT) added (28/06/2021) 
+          - '100.1.1.55'	#Print Server
+            # System: Monitoring System DB (Security) added (28/06/2021)
+          - '100.1.1.117'	#CJE-WOBSIT-P01 (VM) 
+            # System: FVCMS App & DB added (28/06/2021) 
+          - '100.1.1.241'	#AEON-FVCMS-App (VM)
+          - '100.1.1.242'	#AEON-FVCMS-DB (VM) 
+            # System: Internal Staging Server added (28/06/2021)
+          - '100.3.1.68'	#CJR-UDFS-P01 (VM)
+            # System: JumpHost added (28/06/2021) 
+          - '100.3.1.108'	#JumpHost
+            # System: NTT Jump Host added (28/06/2021)
+          - '100.3.1.109'	#LOS 2.0
+            # System: UI-OTG added (28/06/2021) 
+          - '100.3.1.121'	#UIOTG/ TransactNow
+          - '100.3.1.122'	#UIOTG/ TransactNow
+          - '100.3.1.124'	#UIOTG/ TransactNow 
+            # System: MOS Middleware added (28/06/2021)  
+          - '100.3.1.123'	#AEON-OPSApp (VM)
+            # System: DFS added (28/06/2021)
+          - '100.3.1.141'	#AEON-NTTDFS (VM)
+            # System: Opensys Monitoring System added (28/06/2021)
+          - '100.3.1.199'	#ATM   
+            # System: Hosted engine VM added (28/06/2021)
+          - '100.3.1.215'	#HostedEngine 
+            # System: Back Office System added (28/06/2021)
+          - '100.3.1.240'	#acsmboo (VM)            
+            # System: Switch added (27/08/2021)
+          # '10.2.1.101'    #AEON-VOE-DMZ-SVR02 added (15/09/2021) No response
+            # System: VOE added (27/08/2021)
+          # '10.2.1.100'    #AEON-VOE-DMZSVR01 added (15/09/2021) No response
+          # '10.2.1.102'    #AEON-VOE-DMZ-SVR03 added (15/09/2021) No response
+          # '100.3.1.169'   #AEON-VOE-SF-SVR06 added (15/09/2021) Connection refused
+          # '100.3.1.180'   #AEON-VOE-NTT-SVR01 added (15/09/2021) No response
+          # '100.3.1.181'   #AEON-VOE-NTT-SVR02 added (15/09/2021) No response
+          # '100.3.1.182'   #AEON-VOE-NTT-SVR03 added (15/09/2021) No response
+          # '100.3.1.198'   #AEON-VOE-NTT-SVR05 added (15/09/2021) No response
+          # '100.3.1.210'   #AEON-VOE-SF-SVR01 added (15/09/2021) No response
+          # '100.3.1.211'   #AEON-VOE-SF-SVR02 added (15/09/2021) No response
+          # '100.3.1.212'   #AEON-VOE-SF-SVR03 added (15/09/2021) No response
+          # '100.3.1.213'   #AEON-VOE-SF-SVR04 added (15/09/2021) No response
+          # '100.3.1.214'   #AEON-VOE-SF-SVR05 added (15/09/2021) No response
+            # System: N/A added (13/06/2021)
+          - '10.2.101.40'	#N/A
+          - '10.2.101.41'	#N/A
+          - '10.10.1.22'	##N/A
+          - '10.20.100.1'	#N/A
+          - '10.20.100.10'	#N/A
+          - '10.20.100.11'	#N/A
+          - '10.20.101.51'	#N/A
+          - '10.20.101.52'	#N/A
+          - '10.20.101.53'	#N/A
+          - '10.20.101.54'	#N/A
+          - '10.20.101.55'	#N/A
+          - '10.20.101.56'	#N/A
+          - '100.1.1.1'  	#N/A
+          - '100.1.1.29'	#N/A
+          - '100.1.1.49'	#N/A
+          - '100.1.1.128'	#N/A
+          - '100.1.1.225'	#N/A
+          - '100.2.1.135'	#N/A
+          - '100.3.1.1'	    #N/A
+          - '100.3.1.22'	#N/A
+          - '100.3.1.23'	#N/A  
+          - '200.1.1.65'	#N/A 
+          - '200.1.1.100'	#N/A
+          - '200.1.1.118'	#N/A 
+          - '200.1.1.121'	#N/A 
+          - '200.1.1.124'	#N/A
+          - '200.1.1.140'	#N/A 
+          - '200.1.1.184'	#N/A
+          - '200.1.1.185'	#N/A
+          - '200.1.1.190'	#N/A 
+          - '200.1.1.247'	#N/A
+          - '200.1.1.248'	#N/A 
+          - '200.1.2.52'	#N/A
+          - '200.1.2.56'	#N/A
+          - '200.1.2.57'	#N/A
+          - '200.1.2.62'	#N/A
+          - '200.1.2.63'	#N/A
+          - '200.1.2.64'	#N/A
+          - '200.1.2.66'	#N/A 
+          - '200.1.2.159'	#N/A 
+          - '200.1.2.201'	#N/A 
+          - '200.1.5.16'	#N/A          
+            # System: N/A added (28/06/2021)
+          - '100.1.1.244'	#N/A
+          - '100.1.1.249'	#N/A
+            # New LOS and hypervisor added (15/09/2021) 
+          - '100.1.1.88'    #CJV-WIVEST-P01 added (15/09/2021)
+          - '100.1.1.118'   #CJV-WIVEST-P02 added (15/09/2021)
+          - '100.1.1.119'   #CJV-WIVEST-P03 added (15/09/2021)
+          - '100.1.1.23'    #CJV-ABLAZEA-P01 added (15/09/2021)
+          - '100.1.1.24'    #CJV-ABLAZEA-P02 added (15/09/2021)
+          - '100.1.1.127'   #CJV-CCRISMQ-P01 added (15/09/2021)
+          - '100.1.1.20'    #ESX-CBJPLAB-H001 added (15/09/2021)
+          - '100.1.1.31'    #ESX-CBJPLAB-H002 added (15/09/2021)
+          - '100.1.1.45'    #ESX-CBJPLAB-H003 added (15/09/2021)
+      metrics_path: /snmp
+      params:
+        module: [if_mib]
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: aeon-prometheus-snmp-exporter-normal.loki-stack.svc.cluster.local:9116
